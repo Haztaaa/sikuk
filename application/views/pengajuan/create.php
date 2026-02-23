@@ -1,5 +1,8 @@
 <main id="main" class="main">
 
+    <!-- Dropzone CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
+
     <div class="pagetitle">
         <h1>Buat Pengajuan Uji Kelayakan</h1>
         <nav>
@@ -16,7 +19,7 @@
             <div class="col-xl-10">
 
                 <form id="formPengajuan" enctype="multipart/form-data" novalidate>
-                    <?= $this->security->get_csrf_token_name() ?>
+
 
                     <!-- =============================================
                SECTION 1 — Tipe Pengajuan
@@ -24,7 +27,7 @@
                     <div class="card mb-3">
                         <div class="card-body pt-4">
                             <h6 class="card-title d-flex align-items-center gap-2 mb-3">
-                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center text-white"
                                     style="width:26px;height:26px;font-size:13px;">1</span>
                                 Tipe Pengajuan / <em class="fw-normal text-muted">Commissioning Type</em>
                             </h6>
@@ -83,7 +86,7 @@
                     <div class="card mb-3">
                         <div class="card-body pt-4">
                             <h6 class="card-title d-flex align-items-center gap-2 mb-3">
-                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center text-white"
                                     style="width:26px;height:26px;font-size:13px;">2</span>
                                 Detail Unit / <em class="fw-normal text-muted">Unit Details</em>
                             </h6>
@@ -161,7 +164,7 @@
                     <div class="card mb-3">
                         <div class="card-body pt-4">
                             <h6 class="card-title d-flex align-items-center gap-2 mb-3">
-                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center text-white"
                                     style="width:26px;height:26px;font-size:13px;">3</span>
                                 Tujuan Penggunaan / <em class="fw-normal text-muted">Purpose of Access (Justification)</em>
                             </h6>
@@ -182,7 +185,7 @@
                     <div class="card mb-3">
                         <div class="card-body pt-4">
                             <h6 class="card-title d-flex align-items-center gap-2 mb-3">
-                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                                <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center text-white"
                                     style="width:26px;height:26px;font-size:13px;">4</span>
                                 Informasi Pemohon / <em class="fw-normal text-muted">Requester Information</em>
                             </h6>
@@ -229,7 +232,7 @@
                     <div class="card mb-3" id="sectionLampiran" style="display:none;">
                         <div class="card-body pt-4">
                             <h6 class="card-title d-flex align-items-center gap-2 mb-1">
-                                <span class="badge bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center"
+                                <span class="badge bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center text-white"
                                     style="width:26px;height:26px;font-size:13px;">5</span>
                                 Lampiran Foto / <em class="fw-normal text-muted">Attachments</em>
                                 <span class="badge bg-warning text-dark ms-2">Unit Baru Wajib</span>
@@ -244,13 +247,13 @@
 
                                 <!-- STNK -->
                                 <div class="col-md-4">
-                                    <div class="upload-box border rounded p-3 text-center h-100" id="box_stnk">
-                                        <div class="upload-icon mb-2"><i class="bi bi-card-text text-primary" style="font-size:2rem;"></i></div>
-                                        <div class="fw-semibold mb-1">Foto STNK <span class="text-danger">*</span></div>
-                                        <small class="text-muted d-block mb-2">Surat Tanda Nomor Kendaraan</small>
-                                        <input type="file" class="form-control form-control-sm" name="lampiran_stnk" id="lampiran_stnk"
-                                            accept=".jpg,.jpeg,.png,.pdf" onchange="previewFile(this, 'prev_stnk', 'box_stnk')">
-                                        <div id="prev_stnk" class="mt-2"></div>
+                                    <div class="upload-box border rounded p-3 text-center h-100 dropzone" id="box_stnk">
+                                        <div class="dz-message needsclick">
+                                            <div class="upload-icon mb-2"><i class="bi bi-card-text text-primary" style="font-size:2rem;"></i></div>
+                                            <div class="fw-semibold mb-1">Foto STNK <span class="text-danger">*</span></div>
+                                            <small class="text-muted d-block mb-2">Surat Tanda Nomor Kendaraan</small>
+                                            <div class="btn btn-sm btn-primary">Pilih File</div>
+                                        </div>
                                         <div class="invalid-feedback d-block" id="err_stnk"></div>
                                     </div>
                                 </div>
@@ -381,14 +384,100 @@
         border-radius: 4px;
         border: 1px solid #dee2e6;
     }
+
+    /* Dropzone Customization */
+    #box_stnk.dropzone {
+        border: 2px dashed #dee2e6;
+        background: #fdfdfd;
+        min-height: 170px;
+        padding: 10px !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+    }
+
+    #box_stnk.dropzone.dz-drag-hover {
+        border-color: #4154f1;
+        background: #f0f2ff;
+    }
+
+    #box_stnk.dropzone .dz-preview {
+        margin: 0;
+        min-height: 100px;
+        z-index: 10;
+    }
+
+    #box_stnk.dropzone .dz-preview .dz-image {
+        border-radius: 8px;
+        width: 80px;
+        height: 80px;
+    }
+
+    #box_stnk.dropzone.has-file {
+        border-style: solid;
+        border-color: #2eca6a !important;
+        background: #f0fff5;
+    }
+
+    #box_stnk.dropzone.has-error {
+        border-style: solid;
+        border-color: #dc3545 !important;
+        background: #fff5f5;
+    }
 </style>
 
 
+<!-- Dropzone JS -->
+<script src="<?= base_url('assets/js/jquery.min.js') ?>"></script>
+
+<!-- 2. Bootstrap Bundle (includes Popper) -->
+<script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
+<script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+<script src="<?= base_url('assets/js/select2.min.js') ?>"></script>
 <!-- =====================================================
      SCRIPT
 ====================================================== -->
 <script>
+    Dropzone.autoDiscover = false;
+
     $(function() {
+
+        // ------------------------------------------------
+        // Dropzone STNK Config
+        // ------------------------------------------------
+        var stnkDropzone = new Dropzone("#box_stnk", {
+            url: "/",
+            autoProcessQueue: false,
+            maxFiles: 1,
+            acceptedFiles: "image/*,application/pdf",
+            addRemoveLinks: true,
+            dictRemoveFile: "Hapus File",
+            init: function() {
+                this.on("addedfile", function(file) {
+                    if (this.files.length > 1) {
+                        this.removeFile(this.files[0]);
+                    }
+                    $('#box_stnk').addClass('has-file').removeClass('has-error');
+                    $('#err_stnk').text('');
+                });
+                this.on("removedfile", function(file) {
+                    if (this.files.length === 0) {
+                        $('#box_stnk').removeClass('has-file');
+                    }
+                });
+            }
+        });
+
+        // ------------------------------------------------
+        // Init Select2
+        // ------------------------------------------------
+        $('#id_kendaraan').select2({
+            placeholder: "— Pilih No. Polisi / Kendaraan —",
+            allowClear: true,
+            width: '100%'
+        });
 
         // ------------------------------------------------
         // Init tooltip
@@ -434,6 +523,7 @@
                 $('#sectionLampiran').slideUp(200);
                 // Reset file input lampiran
                 $('input[name^="lampiran_"]').val('');
+                stnkDropzone.removeAllFiles(true);
                 $('.upload-box').removeClass('has-file has-error');
                 $('[id^="prev_"]').html('');
             }
@@ -528,7 +618,14 @@
                     'unit_kanan': 'Foto Unit Kanan',
                 };
                 $.each(lampiranList, function(key, label) {
-                    if (!$('#lampiran_' + key)[0].files.length) {
+                    var hasFile = false;
+                    if (key === 'stnk') {
+                        hasFile = stnkDropzone.files.length > 0;
+                    } else {
+                        hasFile = $('#lampiran_' + key)[0].files.length > 0;
+                    }
+
+                    if (!hasFile) {
                         $('#err_' + key).text(label + ' wajib diupload untuk unit baru.');
                         $('#box_' + key).addClass('has-error');
                         valid = false;
@@ -559,7 +656,13 @@
                 .html('<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan...');
 
             var formData = new FormData($('#formPengajuan')[0]);
-            formData.append('<?= $this->security->get_csrf_token_name() ?>', '<?= $this->security->get_csrf_hash() ?>');
+
+            // Append Dropzone file for STNK
+            if (stnkDropzone.files.length > 0) {
+                formData.append('lampiran_stnk', stnkDropzone.files[0]);
+            }
+
+
 
             $.ajax({
                 url: '<?= site_url('pengajuan/store') ?>',
