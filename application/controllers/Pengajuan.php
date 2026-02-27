@@ -38,7 +38,9 @@ class Pengajuan extends CI_Controller
     {
         $data['title']     = 'Buat Pengajuan Uji Kelayakan';
         $data['user']      = $this->session->userdata();
-        $data['kendaraan'] = $this->kendaraan_model->get_all();
+        $data['kendaraan']      = $this->kendaraan_model->get_all();
+        $data['tipe_kendaraan'] = $this->db->where('is_active', 1)->order_by('nama_tipe', 'ASC')->get('tipe_kendaraan')->result();
+        $data['perusahaan']     = $this->db->where('is_active', 1)->order_by('nama_perusahaan', 'ASC')->get('perusahaan')->result();
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
@@ -48,58 +50,102 @@ class Pengajuan extends CI_Controller
 
     // =============================================
     // STORE — Proses simpan pengajuan baru (AJAX)
+    // mode_unit = 'baru'  → insert kendaraan baru + upload lampiran
+    // mode_unit = 'lama'  → pakai id_kendaraan existing
     // =============================================
     public function store()
     {
         if (!$this->input->is_ajax_request()) show_404();
 
-        $id_user      = $this->session->userdata('id_user');
-        $id_kendaraan = (int) $this->input->post('id_kendaraan');
+        $id_user   = $this->session->userdata('id_user');
+        $mode_unit = $this->input->post('mode_unit'); // 'baru' | 'lama'
 
-        // Validasi input
-        $this->form_validation->set_rules('id_kendaraan',   'Kendaraan',         'required|is_natural_no_zero');
-        $this->form_validation->set_rules('email_pemohon',  'Email Pemohon',     'required|valid_email|max_length[100]');
+        // --- Validasi field umum ---
         $this->form_validation->set_rules('tipe_pengajuan', 'Tipe Pengajuan',    'required|in_list[new_commissioning,recommissioning]');
         $this->form_validation->set_rules('tipe_akses',     'Tipe Akses',        'required|in_list[mining,non_mining]');
         $this->form_validation->set_rules('tujuan',         'Tujuan Penggunaan', 'required|max_length[1000]');
+        $this->form_validation->set_rules('email_pemohon',  'Email Pemohon',     'required|valid_email|max_length[100]');
 
         if (!$this->form_validation->run()) {
-            echo json_encode([
-                'status'  => 'error',
-                'message' => validation_errors('<li>', '</li>'),
-            ]);
+            echo json_encode(['status' => 'error', 'message' => validation_errors('<li>', '</li>')]);
             return;
         }
 
-        // Ambil data kendaraan
-        $kendaraan = $this->kendaraan_model->get_by_id($id_kendaraan);
-        if (!$kendaraan) {
-            echo json_encode(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.']);
-            return;
-        }
+        $id_kendaraan = 0;
+        $is_unit_baru = false;
 
-        // Validasi lampiran wajib untuk unit baru
-        if ($kendaraan->is_unit_baru) {
-            $required = ['stnk', 'unit_depan', 'unit_belakang', 'unit_kiri', 'unit_kanan'];
-            $label    = [
-                'stnk'         => 'Foto STNK',
-                'unit_depan'   => 'Foto Unit Depan',
-                'unit_belakang' => 'Foto Unit Belakang',
-                'unit_kiri'    => 'Foto Unit Kiri',
-                'unit_kanan'   => 'Foto Unit Kanan',
-            ];
-            foreach ($required as $jenis) {
-                if (empty($_FILES['lampiran_' . $jenis]['name'])) {
-                    echo json_encode([
-                        'status'  => 'error',
-                        'message' => 'Unit baru wajib melampirkan <strong>' . $label[$jenis] . '</strong>.',
-                    ]);
+        // ==========================================
+        // MODE: UNIT BARU — daftar kendaraan + upload
+        // ==========================================
+        if ($mode_unit === 'baru') {
+            $no_polisi = strtoupper(trim($this->input->post('no_polisi')));
+            $required  = ['jenis_kendaraan', 'nomor_unit', 'merk', 'model_unit', 'no_polisi', 'nomor_rangka', 'nomor_mesin', 'perusahaan', 'tahun'];
+            foreach ($required as $f) {
+                if (!$this->input->post($f)) {
+                    echo json_encode(['status' => 'error', 'message' => 'Field <strong>' . $f . '</strong> wajib diisi.']);
                     return;
                 }
             }
+
+            // Cek no_polisi belum terdaftar
+            $cek = $this->db->where('no_polisi', $no_polisi)->get('kendaraan')->row();
+            if ($cek) {
+                echo json_encode(['status' => 'error', 'message' => 'Nomor polisi <strong>' . $no_polisi . '</strong> sudah terdaftar. Gunakan Recommissioning.']);
+                return;
+            }
+
+            // Validasi file lampiran wajib
+            $foto_required = ['stnk', 'unit_depan', 'unit_belakang', 'unit_kiri', 'unit_kanan'];
+            $foto_label    = ['stnk' => 'Foto STNK', 'unit_depan' => 'Foto Depan', 'unit_belakang' => 'Foto Belakang', 'unit_kiri' => 'Foto Kiri', 'unit_kanan' => 'Foto Kanan'];
+            foreach ($foto_required as $f) {
+                if (empty($_FILES['lampiran_' . $f]['name'])) {
+                    echo json_encode(['status' => 'error', 'message' => '<strong>' . $foto_label[$f] . '</strong> wajib diupload untuk unit baru.']);
+                    return;
+                }
+            }
+
+            // Insert kendaraan baru
+            $id_kendaraan = $this->kendaraan_model->insert([
+                'no_polisi'       => $no_polisi,
+                'jenis_kendaraan' => $this->input->post('jenis_kendaraan'),
+                'nomor_unit'      => $this->input->post('nomor_unit'),
+                'merk'            => $this->input->post('merk'),
+                'tipe'            => $this->input->post('model_unit'), // tipe = model
+                'model_unit'      => $this->input->post('model_unit'),
+                'perusahaan'      => $this->input->post('perusahaan'),
+                'tahun'           => (int) $this->input->post('tahun'),
+                'is_unit_baru'    => 1,
+                'created_at'      => date('Y-m-d H:i:s'),
+            ]);
+
+            if (!$id_kendaraan) {
+                echo json_encode(['status' => 'error', 'message' => 'Gagal mendaftarkan kendaraan baru.']);
+                return;
+            }
+            $is_unit_baru = true;
+
+            // ==========================================
+            // MODE: UNIT LAMA — pakai kendaraan existing
+            // ==========================================
+        } elseif ($mode_unit === 'lama') {
+            $id_kendaraan = (int) $this->input->post('id_kendaraan');
+            if (!$id_kendaraan) {
+                echo json_encode(['status' => 'error', 'message' => 'Pilih kendaraan yang sudah terdaftar.']);
+                return;
+            }
+            $kendaraan = $this->kendaraan_model->get_by_id($id_kendaraan);
+            if (!$kendaraan) {
+                echo json_encode(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.']);
+                return;
+            }
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Mode unit tidak valid.']);
+            return;
         }
 
+        // ==========================================
         // Insert pengajuan
+        // ==========================================
         $id_pengajuan = $this->pengajuan_model->insert_pengajuan([
             'id_kendaraan'     => $id_kendaraan,
             'id_pemohon'       => $id_user,
@@ -114,35 +160,33 @@ class Pengajuan extends CI_Controller
         ]);
 
         if (!$id_pengajuan) {
-            echo json_encode(['status' => 'error', 'message' => 'Gagal menyimpan pengajuan. Silakan coba lagi.']);
+            // Rollback: hapus kendaraan baru jika insert pengajuan gagal
+            if ($is_unit_baru) $this->db->where('id_kendaraan', $id_kendaraan)->delete('kendaraan');
+            echo json_encode(['status' => 'error', 'message' => 'Gagal menyimpan pengajuan.']);
             return;
         }
 
-        // Upload lampiran jika unit baru
-        if ($kendaraan->is_unit_baru) {
+        // Upload lampiran (unit baru)
+        if ($is_unit_baru) {
             $upload_errors = $this->_upload_lampiran($id_pengajuan);
             if (!empty($upload_errors)) {
                 $this->pengajuan_model->delete_pengajuan($id_pengajuan);
-                echo json_encode([
-                    'status'  => 'error',
-                    'message' => 'Gagal upload lampiran:<ul><li>' . implode('</li><li>', $upload_errors) . '</li></ul>',
-                ]);
+                $this->db->where('id_kendaraan', $id_kendaraan)->delete('kendaraan');
+                echo json_encode(['status' => 'error', 'message' => 'Gagal upload:<ul><li>' . implode('</li><li>', $upload_errors) . '</li></ul>']);
                 return;
             }
         }
 
-        // Buat record approval awal (pending ke manager)
+        // Buat record approval awal → manager
         $this->pengajuan_model->insert_approval([
             'id_pengajuan'   => $id_pengajuan,
             'level_approval' => 'manager',
             'status'         => 'pending',
         ]);
 
-        // Audit log
         $this->_audit('buat_pengajuan', 'pengajuan_uji', $id_pengajuan);
 
         $no = '#PU-' . str_pad($id_pengajuan, 4, '0', STR_PAD_LEFT);
-
         echo json_encode([
             'status'   => 'success',
             'message'  => 'Pengajuan <strong>' . $no . '</strong> berhasil disubmit dan menunggu review Manager.',
@@ -251,7 +295,7 @@ class Pengajuan extends CI_Controller
     {
         $errors      = [];
         $jenis_list  = ['stnk', 'unit_depan', 'unit_belakang', 'unit_kiri', 'unit_kanan'];
-        $upload_path = FCPATH . './assets/uploads/lampiran/' . $id_pengajuan . '/';
+        $upload_path = FCPATH . 'uploads/lampiran/' . $id_pengajuan . '/';
 
         if (!is_dir($upload_path)) {
             mkdir($upload_path, 0755, true);
@@ -325,27 +369,46 @@ class Pengajuan extends CI_Controller
             $btn .= '<a href="' . site_url('pengajuan/edit/' . $id) . '" class="btn btn-sm btn-outline-secondary py-0" title="Edit"><i class="bi bi-pencil"></i></a>';
         }
 
-        $can_approve = false;
-        if ($role === 'manager'         && $row->status === 'review_manager')                       $can_approve = true;
-        if ($role === 'ohs_coordinator' && in_array($row->status, ['review_admin', 'review_ohs'])) $can_approve = true;
-        if ($role === 'ohs_supt'        && $row->status === 'approved_ohs')                        $can_approve = true;
-        if ($role === 'ktt'             && $row->status === 'approved_ohs')                        $can_approve = true;
+        // Role sekarang integer: 1=Admin, 2=User, 3=Mekanik, 4=OHS, 5=KTT
+        $role = (int) $role;
 
-        if ($can_approve) {
-            $btn .= '<button class="btn btn-sm btn-success py-0 btn-approve" data-id="' . $id . '" title="Setujui"><i class="bi bi-check-lg"></i></button>';
-            $btn .= '<button class="btn btn-sm btn-danger py-0 btn-reject"  data-id="' . $id . '" title="Tolak"><i class="bi bi-x-lg"></i></button>';
+        // Manager (role 2) approve submitted
+        if (in_array($role, [1, 2]) && $row->status === 'submitted') {
+            $btn .= '<button class="btn btn-sm btn-success py-0 btn-approve" data-id="' . $id . '" data-level="manager" title="Setujui"><i class="bi bi-check-lg"></i></button>';
+            $btn .= '<button class="btn btn-sm btn-danger py-0 btn-reject"  data-id="' . $id . '" data-level="manager" title="Tolak"><i class="bi bi-x-lg"></i></button>';
         }
 
-        if ($role === 'ohs_coordinator' && $row->status === 'approved_admin') {
-            $btn .= '<button class="btn btn-sm btn-info py-0 btn-jadwal text-white" data-id="' . $id . '" title="Jadwalkan"><i class="bi bi-calendar-plus"></i></button>';
+        // Admin OHS (role 4) buat jadwal setelah approved_admin
+        if (in_array($role, [1, 4]) && $row->status === 'approved_admin') {
+            $btn .= '<a href="' . site_url('jadwal/create/' . $id) . '" class="btn btn-sm btn-info py-0 text-white" title="Buat Jadwal"><i class="bi bi-calendar-plus"></i></a>';
         }
 
-        if ($role === 'mekanik' && $row->status === 'scheduled') {
-            $btn .= '<a href="' . site_url('inspeksi/form/' . $id) . '" class="btn btn-sm btn-warning py-0" title="Isi Form Inspeksi"><i class="bi bi-tools"></i></a>';
+        // Admin OHS review hasil inspeksi
+        if (in_array($role, [1, 4]) && $row->status === 'review_ohs') {
+            $btn .= '<button class="btn btn-sm btn-success py-0 btn-approve" data-id="' . $id . '" data-level="admin_ohs_hasil" title="Setujui Hasil"><i class="bi bi-check-lg"></i></button>';
+            $btn .= '<button class="btn btn-sm btn-danger py-0 btn-reject"  data-id="' . $id . '" data-level="admin_ohs_hasil" title="Tolak"><i class="bi bi-x-lg"></i></button>';
         }
 
-        if ($role === 'ohs_coordinator' && $row->status === 'approved_ktt') {
-            $btn .= '<button class="btn btn-sm btn-success py-0 btn-sticker" data-id="' . $id . '" title="Terbitkan Sticker"><i class="bi bi-patch-check"></i></button>';
+        // OHS Superintendent (role 4)
+        if (in_array($role, [1, 4]) && $row->status === 'approved_ohs') {
+            $btn .= '<button class="btn btn-sm btn-success py-0 btn-approve" data-id="' . $id . '" data-level="ohs_supt" title="Setujui OHS"><i class="bi bi-check-lg"></i></button>';
+            $btn .= '<button class="btn btn-sm btn-danger py-0 btn-reject"  data-id="' . $id . '" data-level="ohs_supt" title="Tolak"><i class="bi bi-x-lg"></i></button>';
+        }
+
+        // KTT (role 5)
+        if (in_array($role, [1, 5]) && $row->status === 'approved_ktt') {
+            $btn .= '<button class="btn btn-sm btn-success py-0 btn-approve" data-id="' . $id . '" data-level="ktt" title="Approve KTT"><i class="bi bi-check-lg"></i></button>';
+            $btn .= '<button class="btn btn-sm btn-danger py-0 btn-reject"  data-id="' . $id . '" data-level="ktt" title="Tolak"><i class="bi bi-x-lg"></i></button>';
+        }
+
+        // Mekanik (role 3) isi form inspeksi
+        if (in_array($role, [1, 3]) && $row->status === 'scheduled') {
+            $btn .= '<a href="' . site_url('checklist/form/' . $id) . '" class="btn btn-sm btn-warning py-0" title="Isi Form Inspeksi"><i class="bi bi-tools"></i></a>';
+        }
+
+        // Admin OHS / Admin rilis sticker
+        if (in_array($role, [1, 4]) && $row->status === 'sticker_released') {
+            $btn .= '<button class="btn btn-sm btn-success py-0 btn-sticker" data-id="' . $id . '" title="Cetak Sticker"><i class="bi bi-patch-check"></i></button>';
         }
 
         $btn .= '</div>';

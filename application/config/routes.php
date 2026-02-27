@@ -64,6 +64,23 @@ $route['pengajuan/get_data']             = 'Pengajuan/get_data';
 $route['pengajuan/detail/(:num)']        = 'Pengajuan/detail/$1';
 $route['pengajuan/get_kendaraan_info']   = 'Pengajuan/get_kendaraan_info';
 
+$route['inspeksi']         = 'Inspeksi/index';
+
+$route['jadwal']                = 'Jadwal/index';
+$route['jadwal/create/(:num)']  = 'Jadwal/create/$1';
+$route['jadwal/edit/(:num)']    = 'Jadwal/edit/$1';
+$route['jadwal/store']          = 'Jadwal/store';
+$route['jadwal/cancel']         = 'Jadwal/cancel';
+$route['jadwal/detail']         = 'Jadwal/detail';
+
+$route['approval/manager']         = 'Approval/manager';
+$route['approval/admin_ohs']       = 'Approval/admin_ohs';
+$route['approval/admin_hasil']     = 'Approval/admin_hasil';
+$route['approval/ohs_supt']        = 'Approval/ohs_supt';
+$route['approval/ktt']             = 'Approval/ktt';
+$route['approval/detail/(:any)/(:num)'] = 'Approval/detail/$1/$2';
+$route['approval/proses']          = 'Approval/proses';
+
 $route['default_controller'] = 'auth';
-$route['404_override'] = '';
+$route['404_override'] = 'errors/missing';
 $route['translate_uri_dashes'] = FALSE;

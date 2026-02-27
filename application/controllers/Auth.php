@@ -20,6 +20,13 @@ class Auth extends CI_Controller
 
 	public function login()
 	{
+		if ($this->input->method() !== 'post') {
+			show_error('Invalid request method', 404);
+			return;
+		}
+
+
+		$this->form_validation->set_error_delimiters('', '');
 		$this->form_validation->set_rules('identity', 'Email / Username', 'required');
 		$this->form_validation->set_rules('password', 'Password', 'required');
 		$this->form_validation->set_rules('captcha', 'Captcha', 'required');
@@ -27,12 +34,11 @@ class Auth extends CI_Controller
 		if ($this->form_validation->run() == FALSE) {
 			echo json_encode([
 				'status' => 'error',
-				'message' => strip_tags(validation_errors())
+				'message' => validation_errors()
 			]);
 			return;
 		}
 
-		// Limit attempt
 		$attempt = $this->session->userdata('login_attempt') ?? 0;
 
 		if ($attempt >= 5) {
@@ -43,8 +49,10 @@ class Auth extends CI_Controller
 			return;
 		}
 
-		// Captcha check
-		if ($this->input->post('captcha') != $this->session->userdata('captcha_code')) {
+		$captcha_input = trim($this->input->post('captcha'));
+		$captcha_session = (string) $this->session->userdata('captcha_code');
+
+		if ($captcha_input !== $captcha_session) {
 
 			$this->session->set_userdata('login_attempt', $attempt + 1);
 
@@ -58,14 +66,16 @@ class Auth extends CI_Controller
 		$identity = $this->input->post('identity', TRUE);
 		$password = $this->input->post('password', TRUE);
 
-		// Cek apakah email
 		if (filter_var($identity, FILTER_VALIDATE_EMAIL)) {
 			$user = $this->Auth_model->check_login_by_email($identity);
 		} else {
 			$user = $this->Auth_model->check_login_by_username($identity);
 		}
+
 		if ($user && password_verify($password, $user->password)) {
+
 			$this->session->unset_userdata('login_attempt');
+
 			$this->session->set_userdata([
 				'id_user'   => $user->id_user,
 				'nama'      => $user->nama,
@@ -91,6 +101,11 @@ class Auth extends CI_Controller
 
 	public function logout()
 	{
+		if (!$this->session->userdata('logged_in')) {
+			redirect('auth');
+			return;
+		}
+
 		$this->session->set_flashdata('success', 'Berhasil keluar');
 		$this->session->sess_destroy();
 

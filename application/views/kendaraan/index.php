@@ -228,10 +228,6 @@
         </div>
     </div>
 </div>
-<script src="<?= base_url('assets/js/jquery.min.js') ?>"></script>
-
-<!-- 2. Bootstrap Bundle (includes Popper) -->
-<script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
 
 <!-- =====================================================
      SCRIPT

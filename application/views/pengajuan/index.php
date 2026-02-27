@@ -130,10 +130,7 @@
         </div>
     </div>
 </div>
-<script src="<?= base_url('assets/js/jquery.min.js') ?>"></script>
 
-<!-- 2. Bootstrap Bundle (includes Popper) -->
-<script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
 
 <!-- =====================================================
      SCRIPT
@@ -262,6 +259,7 @@
         // ------------------------------------------------
         $(document).on('click', '.btn-approve', function() {
             var id = $(this).data('id');
+            var level = $(this).data('level');
             Swal.fire({
                 title: 'Konfirmasi Persetujuan',
                 text: 'Apakah Anda yakin ingin menyetujui pengajuan #PU-' + String(id).padStart(4, '0') + '?',
@@ -273,7 +271,7 @@
                 cancelButtonText: 'Batal',
             }).then(function(result) {
                 if (result.isConfirmed) {
-                    doApproval(id, 'approved', '');
+                    doApproval(id, level, 'approve', '');
                 }
             });
         });
@@ -283,6 +281,7 @@
         // ------------------------------------------------
         $(document).on('click', '.btn-reject', function() {
             var id = $(this).data('id');
+            var level = $(this).data('level');
             Swal.fire({
                 title: 'Konfirmasi Penolakan',
                 html: '<p class="text-muted">Masukkan alasan penolakan pengajuan <strong>#PU-' + String(id).padStart(4, '0') + '</strong>:</p>' +
@@ -303,7 +302,7 @@
                 }
             }).then(function(result) {
                 if (result.isConfirmed) {
-                    doApproval(id, 'rejected', result.value);
+                    doApproval(id, level, 'reject', result.value);
                 }
             });
         });
@@ -569,30 +568,53 @@
         // ================================================
         // FUNGSI: Approval AJAX
         // ================================================
-        function doApproval(id, status, catatan) {
+        function doApproval(id, level, aksi, catatan) {
             NProgress.start();
             $.ajax({
-                url: '<?= site_url('approval/process') ?>',
+                url: '<?= site_url('approval/proses') ?>',
                 type: 'POST',
                 data: {
                     <?= $this->security->get_csrf_token_name() ?>: '<?= $this->security->get_csrf_hash() ?>',
                     id_pengajuan: id,
-                    status: status,
+                    level: level,
+                    aksi: aksi,
                     catatan: catatan,
                 },
                 dataType: 'json',
                 success: function(res) {
                     NProgress.done();
                     if (res.status === 'success') {
-                        toastr.success(res.message);
-                        table.ajax.reload(null, false);
+                        // Admin OHS approve → redirect ke form jadwal
+                        if (res.redirect_jadwal) {
+                            Swal.fire({
+                                title: 'Disetujui!',
+                                html: res.message + '<br><small class="text-muted">Silakan buat jadwal uji.</small>',
+                                icon: 'success',
+                                confirmButtonColor: '#4154f1',
+                                confirmButtonText: 'Buat Jadwal',
+                            }).then(function() {
+                                window.location.href = res.redirect_jadwal;
+                            });
+                            return;
+                        }
+                        var icon = aksi === 'approve' ? 'success' : 'warning';
+                        Swal.fire({
+                            icon: icon,
+                            title: aksi === 'approve' ? 'Disetujui!' : 'Ditolak',
+                            html: res.message,
+                            timer: 1800,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(function() {
+                            table.ajax.reload(null, false);
+                        }, 1900);
                     } else {
                         toastr.error(res.message || 'Gagal memproses approval.');
                     }
                 },
                 error: function() {
                     NProgress.done();
-                    toastr.error('Terjadi kesalahan. Silakan coba lagi.');
+                    toastr.error('Terjadi kesalahan server. Silakan coba lagi.');
                 }
             });
         }
